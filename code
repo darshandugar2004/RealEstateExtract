@@ -1,0 +1,46 @@
+import requests
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys 
+from time import sleep
+
+FORM = 'https://forms.gle/fncYbV8nFbdCxxg29'  # google form link to save scrapped data
+char = ['+','$','/','mo','1 bd',' ']
+
+response = requests.get("https://appbrewery.github.io/Zillow-Clone/") 
+code = BeautifulSoup(response.text,'html.parser')
+
+links = []
+prices = []
+address = []
+
+property_data = code.find_all(name = 'div' , class_ = 'StyledPropertyCardDataWrapper')
+
+for each in property_data :
+    links.append(each.find(name='a',class_="StyledPropertyCardDataArea-anchor")['href'])
+    address.append(each.find(name='address').text.strip().replace('|',''))
+    prices.append(each.find(name='span').text)
+
+for str in prices :
+    for i in char :
+        str = str.replace(i,'')
+    
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_experimental_option('detach',True)
+driver = webdriver.Chrome(options=chrome_options)
+driver.get(FORM)
+
+for i in range(0,len(property_data)) :
+    sleep(2)
+    address_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[1]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    address_input.send_keys(address[i])
+
+    price_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[2]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    price_input.send_keys(prices[i])
+
+    link_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[3]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    link_input.send_keys(links[i] , Keys.TAB , Keys.ENTER)
+    sleep(2)
+    new_entry = driver.find_element(By.LINK_TEXT , 'Submit another response').click()
+driver.quit()

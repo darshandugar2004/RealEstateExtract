@@ -2,45 +2,73 @@ import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys 
+from selenium.webdriver.common.keys import Keys
 from time import sleep
 
-FORM = 'https://forms.gle/fncYbV8nFbdCxxg29'  # google form link to save scrapped data
-char = ['+','$','/','mo','1 bd',' ']
+# Constants
+FORM_URL = 'https://forms.gle/fncYbV8nFbdCxxg29'  # Google Form link to save scraped data
+URL = "https://appbrewery.github.io/Zillow-Clone/"
+UNWANTED_CHARACTERS = ['+', '$', '/', 'mo', '1 bd', ' ']
 
-response = requests.get("https://appbrewery.github.io/Zillow-Clone/") 
-code = BeautifulSoup(response.text,'html.parser')
+# Step 1: Scraping property data
+response = requests.get(URL)
+soup = BeautifulSoup(response.text, 'html.parser')
 
+# Extract property details
 links = []
 prices = []
-address = []
+addresses = []
 
-property_data = code.find_all(name = 'div' , class_ = 'StyledPropertyCardDataWrapper')
+property_data = soup.find_all(name='div', class_='StyledPropertyCardDataWrapper')
 
-for each in property_data :
-    links.append(each.find(name='a',class_="StyledPropertyCardDataArea-anchor")['href'])
-    address.append(each.find(name='address').text.strip().replace('|',''))
-    prices.append(each.find(name='span').text)
+for property in property_data:
+    # Extracting property links
+    link = property.find(name='a', class_="StyledPropertyCardDataArea-anchor")['href']
+    links.append(link)
 
-for str in prices :
-    for i in char :
-        str = str.replace(i,'')
-    
+    # Extracting property addresses
+    address = property.find(name='address').text.strip().replace('|', '')
+    addresses.append(address)
+
+    # Extracting property prices
+    price = property.find(name='span').text
+    for char in UNWANTED_CHARACTERS:
+        price = price.replace(char, '')
+    prices.append(price)
+
+# Step 2: Filling the Google Form using Selenium
 chrome_options = webdriver.ChromeOptions()
-chrome_options.add_experimental_option('detach',True)
+chrome_options.add_experimental_option('detach', True)
 driver = webdriver.Chrome(options=chrome_options)
-driver.get(FORM)
+driver.get(FORM_URL)
 
-for i in range(0,len(property_data)) :
+for i in range(len(property_data)):
     sleep(2)
-    address_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[1]/div/div/div[2]/div/div[1]/div/div[1]/input')
-    address_input.send_keys(address[i])
 
-    price_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[2]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    # Filling the address field
+    address_input = driver.find_element(
+        By.XPATH, 
+        '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[1]/div/div/div[2]/div/div[1]/div/div[1]/input'
+    )
+    address_input.send_keys(addresses[i])
+
+    # Filling the price field
+    price_input = driver.find_element(
+        By.XPATH, 
+        '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[2]/div/div/div[2]/div/div[1]/div/div[1]/input'
+    )
     price_input.send_keys(prices[i])
 
-    link_input = driver.find_element(By.XPATH,'//*[@id="mG61Hd"]/div[2]/div/div[2]/div[3]/div/div/div[2]/div/div[1]/div/div[1]/input')
-    link_input.send_keys(links[i] , Keys.TAB , Keys.ENTER)
+    # Filling the link field
+    link_input = driver.find_element(
+        By.XPATH, 
+        '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[3]/div/div/div[2]/div/div[1]/div/div[1]/input'
+    )
+    link_input.send_keys(links[i], Keys.TAB, Keys.ENTER)
+
     sleep(2)
-    new_entry = driver.find_element(By.LINK_TEXT , 'Submit another response').click()
+
+    # Click "Submit another response" to reset the form
+    driver.find_element(By.LINK_TEXT, 'Submit another response').click()
+
 driver.quit()
